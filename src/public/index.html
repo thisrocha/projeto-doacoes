@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Sistema de Doações</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <nav class="navbar">
+<center><h1>Sistema de Doações</h1>
+</nav>
+<h2 class="novo-pedido">Novo Pedido</h2>
+<input id="nome" placeholder="Nome da instituição" />
+<input id="contato" placeholder="Contato" />
+<textarea id="descricao" placeholder="Descreva seu pedido"></textarea>
+<button class="salvar" onclick="salvar()">Salvar</button>
+</center>
+
+<h2>Pedidos</h2>
+<div id="lista"></div>
+
+<script>
+async function carregar() {
+  const res = await fetch("/api/pedidos");
+  const dados = await res.json();
+
+  const lista = document.getElementById("lista");
+  lista.innerHTML = "";
+
+  dados.forEach(p => {
+    const container = document.createElement('div');
+    container.className = 'item';
+
+    const nomeEl = document.createElement('strong');
+    nomeEl.textContent = p.nome || '';
+    container.appendChild(nomeEl);
+    container.appendChild(document.createElement('br'));
+
+    if (p.contato) {
+      const contatoEl = document.createElement('em');
+      contatoEl.textContent = p.contato;
+      container.appendChild(contatoEl);
+      container.appendChild(document.createElement('br'));
+    }
+
+    const descText = document.createTextNode(p.descricao || '');
+    container.appendChild(descText);
+    container.appendChild(document.createElement('br'));
+
+    const statusEl = document.createElement('div');
+    statusEl.className = 'status';
+    statusEl.textContent = 'Status: ' + (p.status || 'pendente');
+    container.appendChild(statusEl);
+    container.appendChild(document.createElement('br'));
+
+    const btnEditar = document.createElement('button');
+    btnEditar.className = 'editar';
+    btnEditar.dataset.id = p.id;
+    btnEditar.dataset.nome = p.nome || '';
+    btnEditar.dataset.descricao = p.descricao || '';
+    btnEditar.dataset.contato = p.contato || '';
+    btnEditar.textContent = 'Editar';
+    container.appendChild(btnEditar);
+
+    if (!p.status || p.status !== 'atendido') {
+      const btnAtender = document.createElement('button');
+      btnAtender.className = 'atender';
+      btnAtender.dataset.id = p.id;
+      btnAtender.textContent = 'Marcar como atendido';
+      container.appendChild(btnAtender);
+    }
+
+    const btnExcluir = document.createElement('button');
+    btnExcluir.className = 'excluir';
+    btnExcluir.dataset.id = p.id;
+    btnExcluir.textContent = 'Excluir';
+    container.appendChild(btnExcluir);
+
+    lista.appendChild(container);
+    lista.appendChild(document.createElement('hr'));
+  });
+}
+
+async function salvar() {
+  const nome = document.getElementById("nome").value;
+  const contato = document.getElementById("contato").value;
+  const descricao = document.getElementById("descricao").value;
+
+  await fetch("/api/pedidos", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ nome, descricao, contato })
+  });
+
+  document.getElementById("nome").value = "";
+  document.getElementById("contato").value = "";
+  document.getElementById("descricao").value = "";
+  carregar();
+}
+
+async function excluir(id) {
+  await fetch(`/api/pedidos/${id}`, { method: "DELETE" });
+  carregar();
+}
+
+
+
+document.getElementById('lista').addEventListener('click', async (e) => {
+  const btn = e.target;
+  if (btn.classList.contains('excluir')) {
+    const id = btn.dataset.id;
+    if (!confirm('Confirma exclusão do pedido?')) return;
+    await excluir(id);
+    return;
+  }
+
+  if (btn.classList.contains('editar')) {
+    const id = btn.dataset.id;
+    const nome = btn.dataset.nome || '';
+    const descricao = btn.dataset.descricao || '';
+    const contato = btn.dataset.contato || '';
+
+    const novoNome = prompt('Nome:', nome);
+    if (novoNome === null) return; 
+    const novoContato = prompt('Contato:', contato || '');
+    if (novoContato === null) return;
+    const novaDesc = prompt('Descrição:', descricao);
+    if (novaDesc === null) return;
+
+    await fetch(`/api/pedidos/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ nome: novoNome, descricao: novaDesc, contato: novoContato })
+    });
+
+    carregar();
+  }
+
+  if (btn.classList.contains('atender')) {
+    const id = btn.dataset.id;
+    await fetch(`/api/pedidos/${id}/atender`, { method: 'POST' });
+    carregar();
+  }
+});
+
+carregar();
+</script>
+
+</body>
+</html>
